@@ -1,0 +1,124 @@
+#!/bin/bash
+# Daily Scout runner. Run from the project folder.
+#
+# Usage:
+#   ./scout            run all listings in queue.txt and send email alerts
+#   ./scout dry        run all listings but DO NOT send emails (just print results)
+#   ./scout sync       pull pending listings from Apple Notes "Scout Queue" into queue.txt
+#   ./scout clear      empty queue.txt (start a fresh batch)
+#   ./scout log        show the last 20 analyzed listings from scouted.jsonl
+#   ./scout edit       open queue.txt in TextEdit to add more listings
+#   ./scout help       show this message
+
+set -e
+cd "$(dirname "$0")"
+
+if [ ! -f .env ]; then
+    echo "ERROR: .env file missing. See README for setup."; exit 1
+fi
+if [ ! -d .venv ]; then
+    echo "ERROR: .venv missing. Re-run 'python3 -m venv .venv && pip install -r requirements.txt'"; exit 1
+fi
+
+# Activate venv if not already active
+if [ -z "$VIRTUAL_ENV" ]; then
+    source .venv/bin/activate
+fi
+
+# Load credentials from .env into the environment
+set -a
+source .env
+set +a
+
+cmd="${1:-run}"
+
+case "$cmd" in
+    run|"")
+        echo "Scout: processing data/queue.txt (alerts ENABLED — emails will be sent for deals)"
+        python -m src.engine watch data/queue.txt
+        ;;
+    dry|--dry|--no-alert)
+        echo "Scout: dry run — no emails will be sent"
+        python -m src.engine --no-alert watch data/queue.txt
+        ;;
+    sync)
+        # Pull pending listings from the Apple Notes "Scout Queue" note and
+        # append them into data/queue.txt. Clears the note afterwards.
+        # First run will prompt you to allow Terminal to control Notes.
+        body=$(osascript <<'APPLESCRIPT'
+tell application "Notes"
+    try
+        set theNote to first note whose name is "Scout Queue"
+        set theText to plaintext of theNote
+        return theText
+    on error
+        return "__NOTE_NOT_FOUND__"
+    end try
+end tell
+APPLESCRIPT
+)
+        if [ "$body" = "__NOTE_NOT_FOUND__" ]; then
+            echo "ERROR: No note titled 'Scout Queue' found in Apple Notes."
+            echo "Create one (any account) and try again."
+            exit 1
+        fi
+
+        # Strip the title line (Notes' first line == the title) and surrounding blank lines.
+        new_entries=$(printf '%s\n' "$body" | sed '1d' | sed '/./,$!d')
+        if [ -z "$new_entries" ]; then
+            echo "Note is empty — nothing to sync."
+            exit 0
+        fi
+
+        # Append to queue.txt, with a separator if the file has existing content.
+        if [ -s data/queue.txt ]; then
+            printf '\n---\n%s\n' "$new_entries" >> data/queue.txt
+        else
+            printf '%s\n' "$new_entries" > data/queue.txt
+        fi
+
+        # Clear the note (preserve the title by setting body to just the H1).
+        osascript <<'APPLESCRIPT'
+tell application "Notes"
+    set body of (first note whose name is "Scout Queue") to "<h1>Scout Queue</h1>"
+end tell
+APPLESCRIPT
+
+        line_count=$(printf '%s\n' "$new_entries" | wc -l | tr -d ' ')
+        echo "Synced $line_count line(s) from Apple Notes into data/queue.txt."
+        echo "Run './scout dry' to preview, or './scout' to process with email alerts."
+        ;;
+    clear)
+        > data/queue.txt
+        echo "queue.txt cleared. Ready for a new batch."
+        ;;
+    log)
+        if [ -s data/scouted.jsonl ]; then
+            tail -20 data/scouted.jsonl | python3 -c "
+import json, sys
+for line in sys.stdin:
+    r = json.loads(line)
+    title = r['listing']['title'][:55]
+    decision = r.get('decision', '?').upper()
+    margin = r.get('breakdown', {}).get('margin_pct')
+    margin_str = f'{margin:+.1f}%' if margin is not None else '   ?  '
+    price = r['listing'].get('price', 0)
+    print(f'  [{decision:5}] {margin_str}  \${price:6.2f}  {title}')
+"
+        else
+            echo "No history yet — run ./scout first."
+        fi
+        ;;
+    edit)
+        open -a TextEdit data/queue.txt
+        echo "Opened queue.txt in TextEdit. Save with Cmd+S when done."
+        ;;
+    help|--help|-h)
+        sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+        ;;
+    *)
+        echo "Unknown command: $cmd"
+        echo "Run './scout help' for usage."
+        exit 1
+        ;;
+esac

@@ -1,0 +1,14 @@
+# Secrets — never commit
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Runtime data — scouted listings may contain live marketplace URLs
+data/queue.txt
+data/scouted.jsonl
+
+# macOS
+.DS_Store

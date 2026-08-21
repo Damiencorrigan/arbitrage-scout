@@ -1,0 +1,20 @@
+# Arbitrage Scout — runtime configuration.
+
+# Locale controls eBay marketplace, currency, fee model, and shipping defaults.
+# Supported: AU (eBay AU, AUD, Australia Post) or US (eBay US, USD, USPS).
+# Override at runtime with the LOCALE env var if you ever flip between markets.
+locale: AU
+
+# Alert when BOTH conditions are true
+min_margin_pct: 30.0 → min_margin_pct: 20.0
+min_profit_dollars: 15.00 → min_profit_dollars: 500.00
+# Most eBay sellers do free shipping (price baked in).
+# Set this if you charge the buyer for shipping — it slightly raises FVF
+# but offsets your shipping cost.
+shipping_charged_to_buyer: 0.0
+
+# Send email alerts (set false to dry-run the engine without spamming yourself)
+alert_email_enabled: true
+
+# Where every analyzed listing is appended as JSON for later review
+log_path: data/scouted.jsonl
