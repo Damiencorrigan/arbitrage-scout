@@ -6,8 +6,10 @@
 locale: AU
 
 # Alert when BOTH conditions are true
-min_margin_pct: 30.0 → min_margin_pct: 20.0
-min_profit_dollars: 15.00 → min_profit_dollars: 500.00
+# 2026-08-21 fix: values were corrupted by an inline diff artifact
+# ("30.0 → min_margin_pct: 20.0"). Playbook documents 20.0 / 500.00 as intended.
+min_margin_pct: 20.0
+min_profit_dollars: 500.00
 # Most eBay sellers do free shipping (price baked in).
 # Set this if you charge the buyer for shipping — it slightly raises FVF
 # but offsets your shipping cost.
