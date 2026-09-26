@@ -59,9 +59,13 @@ Two real inconsistencies the buy-side work must fix in passing:
 
 - `config.yaml` says `locale: AU`, `src/ebay_client.py` defaults `LOCALE="AU"`,
   but `src/fees.py:estimate_shipping()` is US carrier pricing and
-  `FEE_RATES` is the US 13.25% table. AU FVF for most of these categories is
-  ~13.4% (incl. GST treatment varies) and shipping is AusPost. Any AU margin
-  number today is approximately right at best.
+  `FEE_RATES` is the US 13.25% table. The eBay AU final value fee is
+  **UNKNOWN from this repo** — it is category-dependent and GST treatment
+  changes the basis. Shipping would be AusPost. Neither the AU FVF rate nor the
+  AusPost table is measured here and no web check was possible from this seat;
+  look up eBay's current AU fee page (or read an actual seller invoice) before
+  trusting any AU number. Any AU margin number today is approximately right at
+  best.
 - `README.md` still documents 30% / $15 defaults while `config.yaml` ships
   20% / $500. Doc drift; fix when docs are next touched.
 
@@ -142,9 +146,11 @@ Rules for every adapter:
 
 ### A2. Gumtree adapter (`src/sources/gumtree.py`)
 
-Gumtree AU is the higher-value first target: it is server-rendered, has stable
-search URLs with `minPrice`/`maxPrice`/`sort=desc`-style parameters, and does
-not require login for search or detail pages.
+Gumtree AU is the higher-value first target. Verified from this seat: nothing —
+the following are **unverified assumptions** carried from the playbook, to be
+confirmed against the live site before coding: that search/detail pages render
+without login, that the search URL exposes `minPrice`/`maxPrice`/`sort`
+parameters, and that result cards carry title/price/location in the HTML.
 
 - Search URL pattern: `https://www.gumtree.com.au/s-search/<term>/k0?…`
   (exact parameter names to be confirmed against the live site before coding —
